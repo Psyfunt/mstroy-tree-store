@@ -66,14 +66,16 @@ export class TreeStore<T extends TreeItem = TreeItem> {
     return result
   }
 
-  setItems(items: readonly T[]): void {
+  // Методы записи обобщённые: элемент проверяется по форме (нужны id и parent), а не по списку
+  // полей T. Иначе после new TreeStore([]) TypeScript отвергнет литерал с лишним полем, например label.
+  setItems<U extends T>(items: readonly U[]): void {
     this.itemsById.clear()
     this.childrenByParentId.clear()
     for (const item of items) this.link(item)
     this.allItemsCache = null
   }
 
-  addItem(item: T): void {
+  addItem<U extends T>(item: U): void {
     this.link(item)
     this.allItemsCache = null
   }
@@ -96,7 +98,7 @@ export class TreeStore<T extends TreeItem = TreeItem> {
     this.allItemsCache = null
   }
 
-  updateItem(item: T): void {
+  updateItem<U extends T>(item: U): void {
     const previous = this.itemsById.get(item.id)
     if (!previous) return
 

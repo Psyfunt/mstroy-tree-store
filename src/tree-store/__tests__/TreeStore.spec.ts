@@ -255,6 +255,24 @@ describe('TreeStore', () => {
       expect(store.getAll()).toHaveLength(8)
     })
 
+    it('после пустого старта принимает литералы с любыми полями', () => {
+      const store = new TreeStore([])
+
+      store.setItems([{ id: 1, parent: null, label: 'Айтем 1' }])
+      store.addItem({ id: 2, parent: 1, label: 'Айтем 2' })
+      store.updateItem({ id: 2, parent: null, label: 'Айтем 2' })
+
+      expect(store.getAll()).toHaveLength(2)
+    })
+
+    it('после пустого старта не даёт добавить элемент без parent', () => {
+      const store = new TreeStore([])
+      // @ts-expect-error parent обязателен
+      const addWithoutParent = () => store.addItem({ id: 9, label: 'Без родителя' })
+
+      expectTypeOf(addWithoutParent).toBeFunction()
+    })
+
     it('сохраняет тип элементов у явно типизированного хранилища', () => {
       const store = new TreeStore<Row>([])
 
