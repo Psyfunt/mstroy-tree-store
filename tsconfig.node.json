@@ -1,0 +1,26 @@
+// Для файлов, которые выполняются в Node.js: конфиги Vite, Vitest и ESLint.
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": [
+    "vite.config.*",
+    "vitest.config.*",
+    "cypress.config.*",
+    "playwright.config.*",
+    "eslint.config.*"
+  ],
+  "compilerOptions": {
+    // Эти файлы транспилируют сами инструменты, поэтому режим bundler.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+
+    // Только типы Node.js, чтобы случайно не подтянуть другие @types/*.
+    "types": ["node"],
+
+    // Здесь vue-tsc --build только проверяет типы.
+    "noEmit": true,
+
+    // vue-tsc --build пишет .tsbuildinfo для инкрементальной проверки, держим его вне корня.
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
+  }
+}
