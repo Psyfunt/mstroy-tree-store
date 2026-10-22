@@ -11,7 +11,8 @@ import {
 } from './fixtures'
 
 // Потолок взят с большим запасом: всё, что ниже, укладывается в малую его часть. А случайный
-// квадратичный проход по 100 тысячам элементов (перебор на каждом вызове, shift() в очереди) его пробьёт.
+// квадратичный проход по 100 тысячам элементов (перебор на каждом вызове, shift() в очереди,
+// поиск элемента среди всех его соседей) его пробьёт.
 const SIZE = 100_000
 const BUDGET_MS = 2_000
 
@@ -61,8 +62,9 @@ describe(`Потолок производительности TreeStore: ${SIZE}
     expect(store.getAll().length).toBeLessThan(SIZE)
   })
 
-  it('широкое дерево: один корень, все остальные — его дети', () => {
-    const store = new TreeStore(generateWideTree(SIZE))
+  it('широкое дерево: один корень, все остальные — его дети; каждого ребёнка обновить и удалить', () => {
+    const items = generateWideTree(SIZE)
+    const store = new TreeStore(items)
     const withinBudget = startBudget()
 
     for (let i = 0; i < 100; i++) {
@@ -74,9 +76,20 @@ describe(`Потолок производительности TreeStore: ${SIZE}
       store.getAllParents(makeId(SIZE - 1 - i))
       withinBudget()
     }
+    // У каждого ребёнка 100 тысяч соседей: поиск среди них на каждой операции сюда не уложится.
+    for (let i = 1; i < SIZE; i++) {
+      const item = store.getItem(makeId(i))
+      if (item) store.updateItem({ ...item, label: 'Обновлённый' })
+      withinBudget()
+    }
+    for (let i = SIZE - 1; i > 0; i--) {
+      store.removeItem(makeId(i))
+      withinBudget()
+    }
     withinBudget()
 
     expect(descendants).toBe(SIZE - 1)
+    expect(store.getAll()).toEqual([items[0]])
   })
 
   it('цепочка в 100 тысяч уровней обходится без рекурсии', () => {

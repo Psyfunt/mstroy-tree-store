@@ -17,7 +17,9 @@ export class TreeStore<T extends TreeItem = TreeItem> {
   // private, а не #private: в приложении стор оборачивается в прокси Vue,
   // а #-поля через прокси не читаются.
   private readonly itemsById = new Map<TreeItemId, T>()
-  private readonly childrenByParentId = new Map<TreeItemId | null, T[]>()
+  // Дети — Map по id, а не массив: удаление и замена не ищут элемент среди соседей
+  // (на 100 тысячах соседей это секунды), а порядок вставки Map сохраняет.
+  private readonly childrenByParentId = new Map<TreeItemId | null, Map<TreeItemId, T>>()
   // Собирается лениво в getAll(). Любое изменение сбрасывает его присваиванием: уже отданный
   // массив стор больше не трогает, а shallowReactive в приложении замечает изменение.
   private allItemsCache: readonly T[] | null = null
@@ -38,8 +40,8 @@ export class TreeStore<T extends TreeItem = TreeItem> {
   }
 
   getChildren(id: TreeItemId): T[] {
-    // Копия: внутренний список потом меняется на месте.
-    return this.childrenByParentId.get(id)?.slice() ?? []
+    const children = this.childrenByParentId.get(id)
+    return children ? Array.from(children.values()) : []
   }
 
   getAllChildren(id: TreeItemId): T[] {
@@ -49,8 +51,8 @@ export class TreeStore<T extends TreeItem = TreeItem> {
     for (const item of result) {
       const children = this.childrenByParentId.get(item.id)
       if (children) {
-        // Циклом, а не push(...children): на больших массивах spread упирается в лимит аргументов.
-        for (const child of children) result.push(child)
+        // Циклом, а не push(...children): на больших списках spread упирается в лимит аргументов.
+        for (const child of children.values()) result.push(child)
       }
     }
     return result
@@ -92,7 +94,7 @@ export class TreeStore<T extends TreeItem = TreeItem> {
       const children = this.childrenByParentId.get(current.id)
       if (children) {
         this.childrenByParentId.delete(current.id)
-        for (const child of children) pending.push(child)
+        for (const child of children.values()) pending.push(child)
       }
     }
     this.allItemsCache = null
@@ -103,10 +105,9 @@ export class TreeStore<T extends TreeItem = TreeItem> {
     if (!previous) return
 
     if (previous.parent === item.parent) {
-      // Родитель тот же: новый объект встаёт на место старого.
+      // Родитель тот же: новый объект встаёт на место старого, set по знакомому ключу позицию не меняет.
       this.itemsById.set(item.id, item)
-      const siblings = this.childrenByParentId.get(item.parent)
-      if (siblings) siblings[siblings.indexOf(previous)] = item
+      this.childrenByParentId.get(item.parent)?.set(item.id, item)
     } else {
       // Родитель сменился: элемент уходит в конец getAll() и в конец детей нового родителя,
       // так порядок детей всегда совпадает с порядком getAll().
@@ -120,13 +121,12 @@ export class TreeStore<T extends TreeItem = TreeItem> {
   private link(item: T): void {
     this.itemsById.set(item.id, item)
     const siblings = this.childrenByParentId.get(item.parent)
-    if (siblings) siblings.push(item)
-    else this.childrenByParentId.set(item.parent, [item])
+    if (siblings) siblings.set(item.id, item)
+    else this.childrenByParentId.set(item.parent, new Map([[item.id, item]]))
   }
 
   private unlinkFromParent(item: T): void {
-    const siblings = this.childrenByParentId.get(item.parent)
-    if (siblings) siblings.splice(siblings.indexOf(item), 1)
+    this.childrenByParentId.get(item.parent)?.delete(item.id)
   }
 }
 
