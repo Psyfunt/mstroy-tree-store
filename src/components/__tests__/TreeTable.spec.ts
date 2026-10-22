@@ -35,8 +35,8 @@ const tzRows = [
 const poll = { timeout: 3000 }
 
 // Стор оборачиваем так же, как в App.vue.
-const mountTable = (loading = false) => {
-  const store = shallowReactive(new TreeStore(createItems()))
+const mountTable = ({ loading = false, items = createItems() } = {}) => {
+  const store = shallowReactive(new TreeStore(items))
   const wrapper = mount(TreeTable, { props: { store, loading } })
   return { store, wrapper }
 }
@@ -45,7 +45,7 @@ enableAutoUnmount(afterEach)
 
 describe('TreeTable', () => {
   it('пока идёт загрузка, показывает «Загрузка…», а после убирает', async () => {
-    const { wrapper } = mountTable(true)
+    const { wrapper } = mountTable({ loading: true })
 
     await expect.poll(() => readOverlay(wrapper.element), poll).toBe('Загрузка…')
 
@@ -93,5 +93,64 @@ describe('TreeTable', () => {
     await expect
       .poll(() => readRows(wrapper.element), poll)
       .toEqual([...tzRows.slice(0, -1), '1 | 8 | Группа | Айтем 3', '2 | 9 | Элемент | Айтем 9'])
+  })
+
+  it('после removeItem последнего ребёнка строка становится элементом', async () => {
+    const { store, wrapper } = mountTable()
+    await expect.poll(() => readRows(wrapper.element), poll).toEqual(tzRows)
+
+    store.removeItem(7)
+    store.removeItem(8)
+
+    // У «Айтем 4» детей не осталось, номера строк сомкнулись.
+    await expect
+      .poll(() => readRows(wrapper.element), poll)
+      .toEqual([
+        '0 | 1 | Группа | Айтем 1',
+        '1 | 2 | Группа | Айтем 2',
+        '2 | 3 | Элемент | Айтем 4',
+        '2 | 4 | Элемент | Айтем 5',
+        '2 | 5 | Элемент | Айтем 6',
+        '1 | 6 | Элемент | Айтем 3',
+      ])
+  })
+
+  it('после updateItem со сменой родителя строка переезжает вместе с детьми', async () => {
+    const { store, wrapper } = mountTable()
+    await expect.poll(() => readRows(wrapper.element), poll).toEqual(tzRows)
+
+    store.updateItem({ id: 4, parent: 3, label: 'Айтем 4' })
+
+    // «Айтем 3» стал группой, «Айтем 4» с детьми теперь под ним.
+    await expect
+      .poll(() => readRows(wrapper.element), poll)
+      .toEqual([
+        '0 | 1 | Группа | Айтем 1',
+        '1 | 2 | Группа | Айтем 2',
+        '2 | 3 | Элемент | Айтем 5',
+        '2 | 4 | Элемент | Айтем 6',
+        '1 | 5 | Группа | Айтем 3',
+        '2 | 6 | Группа | Айтем 4',
+        '3 | 7 | Элемент | Айтем 7',
+        '3 | 8 | Элемент | Айтем 8',
+      ])
+  })
+
+  it('строит то же дерево, если в данных дети идут раньше родителей', async () => {
+    const { wrapper } = mountTable({ items: createItems().reverse() })
+
+    // Строки идут в порядке данных, а связи и категории те же.
+    await expect
+      .poll(() => readRows(wrapper.element), poll)
+      .toEqual([
+        '0 | 1 | Группа | Айтем 1',
+        '1 | 2 | Элемент | Айтем 3',
+        '1 | 3 | Группа | Айтем 2',
+        '2 | 4 | Элемент | Айтем 6',
+        '2 | 5 | Элемент | Айтем 5',
+        '2 | 6 | Группа | Айтем 4',
+        '3 | 7 | Элемент | Айтем 8',
+        '3 | 8 | Элемент | Айтем 7',
+      ])
   })
 })
