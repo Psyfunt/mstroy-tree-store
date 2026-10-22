@@ -23,3 +23,11 @@ onMounted(async () => {
     <TreeTable :store="store" :loading="loading" />
   </main>
 </template>
+
+<style>
+body {
+  margin: 0;
+  padding: 16px;
+  background: #f3f2f1;
+}
+</style>
