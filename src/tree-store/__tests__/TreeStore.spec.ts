@@ -136,6 +136,16 @@ describe('TreeStore', () => {
       expect(store.getChildren(1)).toEqual([])
       expect(idsOf(store.getChildren('a'))).toEqual(['b'])
     })
+
+    it('пустой массив очищает хранилище', () => {
+      const store = new TreeStore(createItems())
+
+      store.setItems([])
+
+      expect(store.getAll()).toEqual([])
+      expect(store.getItem(1)).toBeUndefined()
+      expect(store.getChildren(1)).toEqual([])
+    })
   })
 
   describe('addItem', () => {
@@ -194,20 +204,27 @@ describe('TreeStore', () => {
   describe('updateItem', () => {
     it('заменяет объект элемента и сохраняет его место', () => {
       const store = new TreeStore(createItems())
+      const before = store.getAll()
       const updated = { id: 5, parent: '91064cef', label: 'Обновлённый' }
 
       store.updateItem(updated)
 
       expect(store.getItem(5)).toBe(updated)
       expect(store.getChildren('91064cef')[1]).toBe(updated)
+      expect(store.getAll()[4]).toBe(updated)
+      expect(store.getAll()).not.toBe(before)
       expect(idsOf(store.getAll())).toEqual([1, '91064cef', 3, 4, 5, 6, 7, 8])
     })
 
     it('при смене родителя ставит элемент в конец детей нового родителя и в конец getAll', () => {
       const store = new TreeStore(createItems())
 
-      store.updateItem({ id: 4, parent: 3, label: 'Айтем 4' })
+      const moved = { id: 4, parent: 3, label: 'Айтем 4' }
 
+      store.updateItem(moved)
+
+      expect(store.getItem(4)).toBe(moved)
+      expect(store.getChildren(3)[0]).toBe(moved)
       expect(idsOf(store.getChildren('91064cef'))).toEqual([5, 6])
       expect(idsOf(store.getChildren(3))).toEqual([4])
       expect(idsOf(store.getAllParents(7))).toEqual([7, 4, 3, 1])
@@ -224,7 +241,37 @@ describe('TreeStore', () => {
     })
   })
 
+  describe('числовой и строковый id с одной записью', () => {
+    it('считает 1 и «1» разными элементами во всех методах', () => {
+      const store = new TreeStore<Row>([
+        { id: 1, parent: null, label: 'Число' },
+        { id: '1', parent: 1, label: 'Строка' },
+        { id: 2, parent: '1', label: 'Внук' },
+      ])
+
+      expect(idsOf(store.getChildren(1))).toEqual(['1'])
+      expect(idsOf(store.getChildren('1'))).toEqual([2])
+      expect(idsOf(store.getAllChildren(1))).toEqual(['1', 2])
+      expect(idsOf(store.getAllParents(2))).toEqual([2, '1', 1])
+
+      store.updateItem({ id: 2, parent: 1, label: 'Внук' })
+
+      expect(store.getChildren('1')).toEqual([])
+      expect(idsOf(store.getChildren(1))).toEqual(['1', 2])
+
+      store.removeItem('1')
+
+      expect(idsOf(store.getAll())).toEqual([1, 2])
+    })
+  })
+
   describe('возвращаемые массивы', () => {
+    it('getAll отдаёт один и тот же массив, пока хранилище не меняется', () => {
+      const store = new TreeStore(createItems())
+
+      expect(store.getAll()).toBe(store.getAll())
+    })
+
     it('полученный раньше массив getAll не меняется после изменения хранилища', () => {
       const store = new TreeStore(createItems())
       const before = store.getAll()

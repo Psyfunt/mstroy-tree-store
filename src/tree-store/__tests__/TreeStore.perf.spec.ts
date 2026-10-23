@@ -71,7 +71,10 @@ describe(`Потолок производительности TreeStore: ${SIZE}
       store.getChildren(makeId(0))
       withinBudget()
     }
+    // Обход в ширину на Map — единицы миллисекунд; очередь через shift() на 100 тысячах детей — около секунды.
+    const started = performance.now()
     const descendants = store.getAllChildren(makeId(0)).length
+    expect(performance.now() - started).toBeLessThan(200)
     for (let i = 0; i < 1_000; i++) {
       store.getAllParents(makeId(SIZE - 1 - i))
       withinBudget()
@@ -104,5 +107,12 @@ describe(`Потолок производительности TreeStore: ${SIZE}
     expect(parents).toBe(SIZE)
     expect(descendants).toBe(SIZE - 1)
     expect(store.getAll()).toEqual([])
+  })
+
+  it('узел с 250 тысячами прямых детей обходится целиком', () => {
+    // push(...children) на таком списке упёрся бы в лимит аргументов вызова.
+    const store = new TreeStore(generateWideTree(250_000))
+
+    expect(store.getAllChildren(makeId(0))).toHaveLength(249_999)
   })
 })
