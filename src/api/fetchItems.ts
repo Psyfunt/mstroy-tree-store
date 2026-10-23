@@ -1,7 +1,7 @@
 import type { TreeRow } from '@/types'
 
 /** Искусственная задержка «ответа сервера», её требует ТЗ. */
-export const LOADING_DELAY_MS = 2000
+const LOADING_DELAY_MS = 2000
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
